@@ -21,29 +21,34 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     query: str
 
+from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
+
 async def get_ai_response(system_instruction: str, query: str, model: str = None) -> str:
-    prompt = f"System Instructions: {system_instruction}\n\nUser Query: {query}"
-    
-    cmd = ["agy"]
-    if model:
-        cmd.extend(["--model", model])
-        
     try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await process.communicate(input=prompt.encode('utf-8'))
-        
-        if process.returncode == 0:
-            return stdout.decode('utf-8').strip()
-        else:
-            return f"Error communicating with AI: {stderr.decode('utf-8').strip()}"
+        # Try setting model if provided
+        kwargs = {
+            "system_instructions": system_instruction,
+            "capabilities": CapabilitiesConfig()
+        }
+        if model:
+            kwargs["model"] = model
+            
+        try:
+            config = LocalAgentConfig(**kwargs)
+        except TypeError:
+            # If `model` is not a valid argument, fall back to default
+            kwargs.pop("model", None)
+            config = LocalAgentConfig(**kwargs)
+            
+        async with Agent(config) as agent:
+            response = await agent.chat(query)
+            output = ""
+            async for token in response:
+                output += token
+            return output.strip()
             
     except Exception as e:
-        return f"Failed to execute 'agy': {str(e)}"
+        return f"Error communicating with AI via SDK: {str(e)}"
 
 @app.post("/api/extract-excel")
 async def extract_excel(file: UploadFile = File(...)):
