@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Digital Bridges Dashboard",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "identifier": "com.kamran.simple-app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -24,7 +24,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://gist.githubusercontent.com/kamranmuazzam/a9c9aa1bbc1a9bf21179737a9f603d13/raw/update.json"
+        "https://api.github.com/repos/kamranmuazzam/ngo-a/releases/latest"
       ],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1MTY2MTc4ODQzNjExRUYKUldUdkVUYUVlR0VXZFNwU05ZNGRyazVaSERyTzJrT1gyY1pJS2NoOHVydzd3bEU4d25qckk3dkoK"
     }
