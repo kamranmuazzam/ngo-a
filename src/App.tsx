@@ -19,8 +19,7 @@ function getGitHubToken() {
 }
 
 import { PROVINCES_AND_DISTRICTS, ALL_PROVINCES } from './nepal';
-
-
+import logoUrl from './assets/logo.svg';
 
 const fetchData = (type: string) => async () => {
   return await invoke(`get_${type}`);
@@ -266,7 +265,10 @@ function App() {
   return (
     <>
       <aside class="sidebar">
-        <div class="sidebar-title">Digital Bridges Dashboard</div>
+        <div class="sidebar-title" style={{ "text-align": "center", "padding-bottom": "1rem" }}>
+          <img src={logoUrl} alt="Digital Bridges Logo" style={{ width: "80px", "margin-bottom": "0.5rem" }} />
+          <div>Digital Bridges Dashboard</div>
+        </div>
         <a href="#" class={`nav-link ${activeTab() === 'dashboard' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('dashboard'); }}>Dashboard</a>
         <a href="#" class={`nav-link ${activeTab() === 'schools' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('schools'); }}>Schools</a>
         <a href="#" class={`nav-link ${activeTab() === 'students' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('students'); }}>Students</a>
