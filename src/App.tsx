@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
-import { open } from '@tauri-apps/plugin-opener';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import { createSignal, createResource, For, Show, onMount } from 'solid-js';
 import * as XLSX from 'xlsx';
 import { PROVINCES_AND_DISTRICTS, ALL_PROVINCES } from './nepal';
@@ -257,7 +257,7 @@ function App() {
               <br/>
               <span style={{ "font-size": "0.85rem", opacity: 0.9 }}>{updateAvailable().notes}</span>
             </div>
-            <button class="btn" style={{ background: 'white', color: '#3b82f6' }} onClick={() => open(updateAvailable().url)}>
+            <button class="btn" style={{ background: 'white', color: '#3b82f6' }} onClick={() => openUrl(updateAvailable().url)}>
               Download Update
             </button>
           </div>
