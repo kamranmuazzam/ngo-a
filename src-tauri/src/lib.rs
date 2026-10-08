@@ -372,15 +372,21 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
-            #[cfg(any(target_os = "android", target_os = "ios"))]
             let db_path = {
                 let app_dir = app.path().app_data_dir().expect("Failed to get app data dir");
                 std::fs::create_dir_all(&app_dir).expect("Failed to create app data dir");
-                app_dir.join("edubase.db")
-            };
+                let target_db = app_dir.join("edubase.db");
 
-            #[cfg(not(any(target_os = "android", target_os = "ios")))]
-            let db_path = std::path::PathBuf::from("edubase.db");
+                if !target_db.exists() {
+                    if let Ok(resource_dir) = app.path().resource_dir() {
+                        let bundled_db = resource_dir.join("edubase.db");
+                        if bundled_db.exists() {
+                            let _ = std::fs::copy(bundled_db, &target_db);
+                        }
+                    }
+                }
+                target_db
+            };
 
             let db = init_db(db_path).expect("Failed to initialize database");
             app.manage(AppState { db: Mutex::new(db) });
