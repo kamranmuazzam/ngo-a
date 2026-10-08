@@ -1,8 +1,23 @@
 import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { check } from '@tauri-apps/plugin-updater';
 import { createSignal, createResource, For, Show, onMount } from 'solid-js';
 import * as XLSX from 'xlsx';
+
+function getGitHubToken() {
+  const encrypted = "INSERT_ENCRYPTED_TOKEN_HERE";
+  if (encrypted === "INSERT_ENCRYPTED_TOKEN_HERE") return ""; 
+  
+  const key = "ngo-a-secret-key";
+  const decoded = atob(encrypted);
+  let res = "";
+  for(let i = 0; i < decoded.length; i++) {
+    res += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return res;
+}
+
 import { PROVINCES_AND_DISTRICTS, ALL_PROVINCES } from './nepal';
 
 
@@ -41,23 +56,33 @@ function App() {
   const [mapSvgData, setMapSvgData] = createSignal('');
   
   // Updater State
-  const [updateAvailable, setUpdateAvailable] = createSignal<any>(null);
+  const [updateStatus, setUpdateStatus] = createSignal<string>('');
+  const [isUpdating, setIsUpdating] = createSignal<boolean>(false);
 
   onMount(async () => {
     fetch('/nepal.svg').then(r => r.text()).then(t => setMapSvgData(t));
     
-    // Check for Updates
+    // Check for Native Auto-Updates
     try {
-      const currentVersion = await getVersion();
-      const response = await fetch('https://gist.githubusercontent.com/kamranmuazzam/a9c9aa1bbc1a9bf21179737a9f603d13/raw/update.json');
-      const data = await response.json();
+      const token = getGitHubToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
-      // Basic check: if the remote version is different from the current version
-      if (data.version && data.version !== currentVersion) {
-        setUpdateAvailable(data);
+      const update = await check({ headers });
+      
+      if (update) {
+        setUpdateStatus(`Downloading version ${update.version}... Please keep the app open.`);
+        setIsUpdating(true);
+        
+        // Let it download and install in the background
+        await update.downloadAndInstall();
+        
+        setUpdateStatus('Update installed successfully! Restarting...');
+        // In Tauri v2, we usually need to call process.exit(0) or relaunch
+        // Tauri handles restart if configured or user just restarts.
+        setTimeout(() => window.location.reload(), 3000);
       }
     } catch (e) {
-      console.error("Failed to check for updates", e);
+      console.error("Failed to auto-update", e);
     }
   });
   
@@ -250,16 +275,11 @@ function App() {
       </aside>
 
       <main class="main-content">
-        <Show when={updateAvailable()}>
-          <div style={{ background: '#3b82f6', color: 'white', padding: '0.8rem 1rem', "border-radius": '8px', "margin-bottom": '1rem', display: 'flex', "justify-content": 'space-between', "align-items": 'center' }}>
+        <Show when={isUpdating()}>
+          <div style={{ background: '#10b981', color: 'white', padding: '0.8rem 1rem', "border-radius": '8px', "margin-bottom": '1rem', display: 'flex', "justify-content": 'space-between', "align-items": 'center' }}>
             <div>
-              <strong>Update Available!</strong> Version {updateAvailable().version} is out.
-              <br/>
-              <span style={{ "font-size": "0.85rem", opacity: 0.9 }}>{updateAvailable().notes}</span>
+              <strong>Auto-Updater Active:</strong> {updateStatus()}
             </div>
-            <button class="btn" style={{ background: 'white', color: '#3b82f6' }} onClick={() => openUrl(updateAvailable().url)}>
-              Download Update
-            </button>
           </div>
         </Show>
 

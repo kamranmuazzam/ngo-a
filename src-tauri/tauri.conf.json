@@ -21,6 +21,14 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://gist.githubusercontent.com/kamranmuazzam/a9c9aa1bbc1a9bf21179737a9f603d13/raw/update.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDc1MTY2MTc4ODQzNjExRUYKUldUdkVUYUVlR0VXZFNwU05ZNGRyazVaSERyTzJrT1gyY1pJS2NoOHVydzd3bEU4d25qckk3dkoK"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

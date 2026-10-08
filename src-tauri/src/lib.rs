@@ -369,6 +369,7 @@ fn delete_training(state: State<AppState>, id: String) -> Result<String, String>
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             #[cfg(any(target_os = "android", target_os = "ios"))]
