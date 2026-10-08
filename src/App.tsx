@@ -6,13 +6,13 @@ import { createSignal, createResource, For, Show, onMount } from 'solid-js';
 import * as XLSX from 'xlsx';
 
 function getGitHubToken() {
-  const encrypted = "INSERT_ENCRYPTED_TOKEN_HERE";
-  if (encrypted === "INSERT_ENCRYPTED_TOKEN_HERE") return ""; 
-  
+  const encrypted = "CQ8fci8fFSICFAw9XCUUGCM+BRoAfBgAEwcjPWkGKyAgFl1BUnU0JA==";
+  if (encrypted === "CQ8fci8fFSICFAw9XCUUGCM+BRoAfBgAEwcjPWkGKyAgFl1BUnU0JA==") return "";
+
   const key = "ngo-a-secret-key";
   const decoded = atob(encrypted);
   let res = "";
-  for(let i = 0; i < decoded.length; i++) {
+  for (let i = 0; i < decoded.length; i++) {
     res += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
   }
   return res;
@@ -45,7 +45,7 @@ function App() {
   const [students, { refetch: refetchStudents }] = createResource(fetchData('students'));
   const [teachers, { refetch: refetchTeachers }] = createResource(fetchData('teachers'));
   const [trainings, { refetch: refetchTrainings }] = createResource(fetchData('trainings'));
-  
+
   // Modal State
   const [showModal, setShowModal] = createSignal(false);
   const [showInfo, setShowInfo] = createSignal(false);
@@ -56,9 +56,9 @@ function App() {
   const [modalMode, setModalMode] = createSignal<'add' | 'edit'>('add');
   const [modalType, setModalType] = createSignal<'school' | 'student' | 'teacher' | 'training'>('student');
   const [editingId, setEditingId] = createSignal<string>('');
-  
+
   const [mapSvgData, setMapSvgData] = createSignal('');
-  
+
   // Updater State
   const [updateStatus, setUpdateStatus] = createSignal<string>('');
   const [isUpdating, setIsUpdating] = createSignal<boolean>(false);
@@ -66,21 +66,21 @@ function App() {
   onMount(async () => {
     fetch('/nepal.svg').then(r => r.text()).then(t => setMapSvgData(t));
     getVersion().then(v => setAppVersion(v));
-    
+
     // Check for Native Auto-Updates
     try {
       const token = getGitHubToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      
+
       const update = await check({ headers });
-      
+
       if (update) {
         setUpdateStatus(`Downloading version ${update.version}... Please keep the app open.`);
         setIsUpdating(true);
-        
+
         // Let it download and install in the background
         await update.downloadAndInstall();
-        
+
         setUpdateStatus('Update installed successfully! Restarting...');
         // In Tauri v2, we usually need to call process.exit(0) or relaunch
         // Tauri handles restart if configured or user just restarts.
@@ -90,7 +90,7 @@ function App() {
       console.error("Failed to auto-update", e);
     }
   });
-  
+
   const [formData, setFormData] = createSignal<any>({});
   const [isSaving, setIsSaving] = createSignal(false);
 
@@ -117,34 +117,34 @@ function App() {
     const sch = schools() || [];
     const tr = trainings() || [];
 
-    const activeS = s.filter((x:any) => x.category?.toLowerCase() === 'active');
-    const activeBoys = activeS.filter((x:any) => x.gender?.toLowerCase() === 'boy' || x.gender?.toLowerCase() === 'male').length;
-    const activeGirls = activeS.filter((x:any) => x.gender?.toLowerCase() === 'girl' || x.gender?.toLowerCase() === 'female').length;
+    const activeS = s.filter((x: any) => x.category?.toLowerCase() === 'active');
+    const activeBoys = activeS.filter((x: any) => x.gender?.toLowerCase() === 'boy' || x.gender?.toLowerCase() === 'male').length;
+    const activeGirls = activeS.filter((x: any) => x.gender?.toLowerCase() === 'girl' || x.gender?.toLowerCase() === 'female').length;
 
-    const alumniS = s.filter((x:any) => x.category?.toLowerCase() === 'graduated' || x.category?.toLowerCase() === 'alumni' || x.category?.toLowerCase() === 'completed');
-    const alumniBoys = alumniS.filter((x:any) => x.gender?.toLowerCase() === 'boy' || x.gender?.toLowerCase() === 'male').length;
-    const alumniGirls = alumniS.filter((x:any) => x.gender?.toLowerCase() === 'girl' || x.gender?.toLowerCase() === 'female').length;
+    const alumniS = s.filter((x: any) => x.category?.toLowerCase() === 'graduated' || x.category?.toLowerCase() === 'alumni' || x.category?.toLowerCase() === 'completed');
+    const alumniBoys = alumniS.filter((x: any) => x.gender?.toLowerCase() === 'boy' || x.gender?.toLowerCase() === 'male').length;
+    const alumniGirls = alumniS.filter((x: any) => x.gender?.toLowerCase() === 'girl' || x.gender?.toLowerCase() === 'female').length;
 
-    const activeT = t.filter((x:any) => x.status?.toLowerCase() === 'active');
-    const activeTMale = activeT.filter((x:any) => x.gender?.toLowerCase() === 'male' || x.gender?.toLowerCase() === 'm').length;
-    const activeTFemale = activeT.filter((x:any) => x.gender?.toLowerCase() === 'female' || x.gender?.toLowerCase() === 'f').length;
+    const activeT = t.filter((x: any) => x.status?.toLowerCase() === 'active');
+    const activeTMale = activeT.filter((x: any) => x.gender?.toLowerCase() === 'male' || x.gender?.toLowerCase() === 'm').length;
+    const activeTFemale = activeT.filter((x: any) => x.gender?.toLowerCase() === 'female' || x.gender?.toLowerCase() === 'f').length;
 
-    const allSBoys = s.filter((x:any) => x.gender?.toLowerCase() === 'boy' || x.gender?.toLowerCase() === 'male').length;
-    const allSGirls = s.filter((x:any) => x.gender?.toLowerCase() === 'girl' || x.gender?.toLowerCase() === 'female').length;
+    const allSBoys = s.filter((x: any) => x.gender?.toLowerCase() === 'boy' || x.gender?.toLowerCase() === 'male').length;
+    const allSGirls = s.filter((x: any) => x.gender?.toLowerCase() === 'girl' || x.gender?.toLowerCase() === 'female').length;
 
-    const districtsSet = new Set(sch.map((x:any) => x.district?.toUpperCase()).filter(Boolean));
+    const districtsSet = new Set(sch.map((x: any) => x.district?.toUpperCase()).filter(Boolean));
     const districts = districtsSet.size;
-    const trainingEvents = new Set(tr.map((x:any) => (x.training_title || '') + (x.start_date || ''))).size;
+    const trainingEvents = new Set(tr.map((x: any) => (x.training_title || '') + (x.start_date || ''))).size;
 
-    const calcPct = (part:number, total:number) => total > 0 ? Math.round((part / total) * 100) : 0;
+    const calcPct = (part: number, total: number) => total > 0 ? Math.round((part / total) * 100) : 0;
 
     return {
       schools: sch.length,
-      
+
       activeS: activeS.length,
       activeBoysPct: calcPct(activeBoys, activeS.length),
       activeGirlsPct: calcPct(activeGirls, activeS.length),
-      
+
       alumniS: alumniS.length,
       alumniBoysPct: calcPct(alumniBoys, alumniS.length),
       alumniGirlsPct: calcPct(alumniGirls, alumniS.length),
@@ -158,7 +158,7 @@ function App() {
       totalSGirls: allSGirls,
 
       totalT: t.length,
-      
+
       districts,
       districtsArray: Array.from(districtsSet),
       trainingEvents,
@@ -166,24 +166,24 @@ function App() {
     };
   };
 
-  
+
 
 
   const submitRecord = async (e: Event) => {
     e.preventDefault();
     setIsSaving(true);
-    
+
     const type = modalType();
     const mode = modalMode();
     const idString = editingId();
-    
+
     try {
       if (mode === 'edit' && idString) {
         await invoke(`update_${type}`, { id: idString, payload: formData() });
       } else {
         await invoke(`create_${type}`, { payload: formData() });
       }
-      
+
       setShowModal(false);
       if (type === 'school') refetchSchools();
       if (type === 'student') refetchStudents();
@@ -199,16 +199,16 @@ function App() {
 
   const deleteRecord = async (type: 'school' | 'student' | 'teacher' | 'training', rawId: any) => {
     if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
-    
+
     const idString = extractId(rawId);
     if (!idString) {
       alert("Could not extract ID to delete.");
       return;
     }
-    
+
     try {
       await invoke(`delete_${type}`, { id: idString });
-      
+
       if (type === 'school') refetchSchools();
       if (type === 'student') refetchStudents();
       if (type === 'teacher') refetchTeachers();
@@ -227,19 +227,19 @@ function App() {
   const exportToExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
-      
+
       const s1 = XLSX.utils.json_to_sheet(schools() || []);
       XLSX.utils.book_append_sheet(wb, s1, "Schools");
-      
+
       const s2 = XLSX.utils.json_to_sheet(students() || []);
       XLSX.utils.book_append_sheet(wb, s2, "Students");
-      
+
       const s3 = XLSX.utils.json_to_sheet(teachers() || []);
       XLSX.utils.book_append_sheet(wb, s3, "Teachers");
-      
+
       const s4 = XLSX.utils.json_to_sheet(trainings() || []);
       XLSX.utils.book_append_sheet(wb, s4, "Trainings");
-      
+
       XLSX.writeFile(wb, "CLEC_Data_Export.xlsx");
     } catch (e) {
       console.error("Export error", e);
@@ -282,10 +282,10 @@ function App() {
         <a href="#" class={`nav-link ${activeTab() === 'trainings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('trainings'); }}>Trainings</a>
         <div style={{ "flex-grow": 1 }}></div>
         <a href="#" class="nav-link" onClick={(e) => { e.preventDefault(); exportToExcel(); }}>
-          <span style={{"font-weight": "normal", "font-size": "0.9rem", "opacity": 0.8}}>Export All Data</span>
+          <span style={{ "font-weight": "normal", "font-size": "0.9rem", "opacity": 0.8 }}>Export All Data</span>
         </a>
         <div style={{ "text-align": "center", "opacity": 0.3, "cursor": "pointer", "margin-bottom": "1rem" }} onClick={() => setShowInfo(true)}>
-          <span style={{"font-family": "monospace", "border": "1px solid", "border-radius": "50%", "padding": "0 5px", "font-size": "12px"}}>i</span>
+          <span style={{ "font-family": "monospace", "border": "1px solid", "border-radius": "50%", "padding": "0 5px", "font-size": "12px" }}>i</span>
         </div>
       </aside>
 
@@ -317,36 +317,36 @@ function App() {
 
         <div class="glass-card animate-fade-in">
           {activeTab() === 'dashboard' && (
-              <div class="dashboard-2d-grid">
-                {/* Left Column */}
+            <div class="dashboard-2d-grid">
+              {/* Left Column */}
               <div class="side-col">
-                <div class="stat-card" style={{"padding": "1.2rem"}}>
-                  <h3 style={{"font-size": "1rem"}}>Total CLEC Schools</h3>
-                  <div class="value" style={{"font-size": "2rem"}}>{getStats().schools}</div>
-                  <div style={{"font-size": "0.85rem", "color": "var(--text-muted)"}}>{getStats().districts} Districts Covered</div>
+                <div class="stat-card" style={{ "padding": "1.2rem" }}>
+                  <h3 style={{ "font-size": "1rem" }}>Total CLEC Schools</h3>
+                  <div class="value" style={{ "font-size": "2rem" }}>{getStats().schools}</div>
+                  <div style={{ "font-size": "0.85rem", "color": "var(--text-muted)" }}>{getStats().districts} Districts Covered</div>
                 </div>
 
-                <div class="stat-card" style={{"padding": "1.2rem", "border-left": "4px solid #3b82f6"}}>
-                  <h3 style={{"font-size": "1rem"}}>Total Student Beneficiaries (Project Start to Date)</h3>
-                  <div class="value" style={{"font-size": "1.5rem"}}>{getStats().totalS}</div>
-                  <div style={{"font-size": "0.85rem", "color": "var(--text-muted)"}}>Boys: {getStats().totalSBoys} | Girls: {getStats().totalSGirls}</div>
-                  <div style={{"font-size": "0.75rem", "color": "#10b981", "margin-top": "0.5rem"}}>✓ Duplicate participants removed</div>
+                <div class="stat-card" style={{ "padding": "1.2rem", "border-left": "4px solid #3b82f6" }}>
+                  <h3 style={{ "font-size": "1rem" }}>Total Student Beneficiaries (Project Start to Date)</h3>
+                  <div class="value" style={{ "font-size": "1.5rem" }}>{getStats().totalS}</div>
+                  <div style={{ "font-size": "0.85rem", "color": "var(--text-muted)" }}>Boys: {getStats().totalSBoys} | Girls: {getStats().totalSGirls}</div>
+                  <div style={{ "font-size": "0.75rem", "color": "#10b981", "margin-top": "0.5rem" }}>✓ Duplicate participants removed</div>
                 </div>
 
-                <div class="stat-card" style={{"padding": "1.2rem", "border-left": "4px solid #3b82f6"}}>
-                  <h3 style={{"font-size": "1rem"}}>Total Teacher Beneficiaries (Project Start to Date)</h3>
-                  <div class="value" style={{"font-size": "1.5rem"}}>{getStats().totalT}</div>
-                  <div style={{"font-size": "0.75rem", "color": "#10b981", "margin-top": "0.5rem"}}>✓ Duplicate participants removed</div>
+                <div class="stat-card" style={{ "padding": "1.2rem", "border-left": "4px solid #3b82f6" }}>
+                  <h3 style={{ "font-size": "1rem" }}>Total Teacher Beneficiaries (Project Start to Date)</h3>
+                  <div class="value" style={{ "font-size": "1.5rem" }}>{getStats().totalT}</div>
+                  <div style={{ "font-size": "0.75rem", "color": "#10b981", "margin-top": "0.5rem" }}>✓ Duplicate participants removed</div>
                 </div>
               </div>
 
               {/* Center Column: Map */}
               <div class="center-map-col">
-                <div class="stat-card" style={{"padding": "1.2rem", "display": "flex", "flex-direction": "column", "align-items": "center", "background": "rgba(255,255,255,0.85)", "color": "#111", "height": "100%", "justify-content": "center"}}>
-                  <h3 style={{"margin": 0, "align-self": "flex-start", "color": "#333", "font-size": "1rem"}}>Implementation Map of Nepal</h3>
-                  <div style={{"font-size": "0.85rem", "color": "#555", "align-self": "flex-start", "margin-bottom": "1rem"}}>{getStats().districts} Total Districts Covered</div>
-                  
-                  <div class="svg-map-wrapper" innerHTML={mapSvgData()} style={{"width": "100%", "flex": 1, "min-height": "300px", "display": "flex", "justify-content": "center", "align-items": "center", "overflow": "hidden"}} />
+                <div class="stat-card" style={{ "padding": "1.2rem", "display": "flex", "flex-direction": "column", "align-items": "center", "background": "rgba(255,255,255,0.85)", "color": "#111", "height": "100%", "justify-content": "center" }}>
+                  <h3 style={{ "margin": 0, "align-self": "flex-start", "color": "#333", "font-size": "1rem" }}>Implementation Map of Nepal</h3>
+                  <div style={{ "font-size": "0.85rem", "color": "#555", "align-self": "flex-start", "margin-bottom": "1rem" }}>{getStats().districts} Total Districts Covered</div>
+
+                  <div class="svg-map-wrapper" innerHTML={mapSvgData()} style={{ "width": "100%", "flex": 1, "min-height": "300px", "display": "flex", "justify-content": "center", "align-items": "center", "overflow": "hidden" }} />
                   <style>
                     {`
                       .svg-map-wrapper svg { width: 100%; height: 100%; max-height: 400px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
@@ -355,7 +355,7 @@ function App() {
                         fill: transparent;
                       }
                       /* Highlight the covered districts */
-                      ${getStats().districtsArray.map((d:string) => `.svg-map-wrapper svg path[id="${d}"]`).join(', ')} {
+                      ${getStats().districtsArray.map((d: string) => `.svg-map-wrapper svg path[id="${d}"]`).join(', ')} {
                         fill: #3b82f6 !important;
                         stroke: #1d4ed8 !important;
                         stroke-width: 1px !important;
@@ -398,28 +398,28 @@ function App() {
 
               {/* Right Column */}
               <div class="side-col">
-                <div class="stat-card" style={{"padding": "1.2rem"}}>
-                  <h3 style={{"font-size": "1rem"}}>Active Student Users</h3>
-                  <div class="value" style={{"font-size": "2rem"}}>{getStats().activeS}</div>
-                  <div style={{"font-size": "0.85rem", "color": "var(--text-muted)"}}>Boys: {getStats().activeBoysPct}% | Girls: {getStats().activeGirlsPct}%</div>
-                </div>
-                
-                <div class="stat-card" style={{"padding": "1.2rem"}}>
-                  <h3 style={{"font-size": "1rem"}}>Alumni Students</h3>
-                  <div class="value" style={{"font-size": "2rem"}}>{getStats().alumniS}</div>
-                  <div style={{"font-size": "0.85rem", "color": "var(--text-muted)"}}>Boys: {getStats().alumniBoysPct}% | Girls: {getStats().alumniGirlsPct}%</div>
-                </div>
-                
-                <div class="stat-card" style={{"padding": "1.2rem"}}>
-                  <h3 style={{"font-size": "1rem"}}>Active Teachers</h3>
-                  <div class="value" style={{"font-size": "2rem"}}>{getStats().activeT}</div>
-                  <div style={{"font-size": "0.85rem", "color": "var(--text-muted)"}}>Male: {getStats().activeTMalePct}% | Female: {getStats().activeTFemalePct}%</div>
+                <div class="stat-card" style={{ "padding": "1.2rem" }}>
+                  <h3 style={{ "font-size": "1rem" }}>Active Student Users</h3>
+                  <div class="value" style={{ "font-size": "2rem" }}>{getStats().activeS}</div>
+                  <div style={{ "font-size": "0.85rem", "color": "var(--text-muted)" }}>Boys: {getStats().activeBoysPct}% | Girls: {getStats().activeGirlsPct}%</div>
                 </div>
 
-                <div class="stat-card" style={{"padding": "1.2rem"}}>
-                  <h3 style={{"font-size": "1rem"}}>CLEC Training Events</h3>
-                  <div class="value" style={{"font-size": "1.5rem"}}>{getStats().trainingEvents}</div>
-                  <div style={{"font-size": "0.85rem", "color": "var(--text-muted)", "margin-top": "0.2rem"}}>Participants: {getStats().totalParticipants}</div>
+                <div class="stat-card" style={{ "padding": "1.2rem" }}>
+                  <h3 style={{ "font-size": "1rem" }}>Alumni Students</h3>
+                  <div class="value" style={{ "font-size": "2rem" }}>{getStats().alumniS}</div>
+                  <div style={{ "font-size": "0.85rem", "color": "var(--text-muted)" }}>Boys: {getStats().alumniBoysPct}% | Girls: {getStats().alumniGirlsPct}%</div>
+                </div>
+
+                <div class="stat-card" style={{ "padding": "1.2rem" }}>
+                  <h3 style={{ "font-size": "1rem" }}>Active Teachers</h3>
+                  <div class="value" style={{ "font-size": "2rem" }}>{getStats().activeT}</div>
+                  <div style={{ "font-size": "0.85rem", "color": "var(--text-muted)" }}>Male: {getStats().activeTMalePct}% | Female: {getStats().activeTFemalePct}%</div>
+                </div>
+
+                <div class="stat-card" style={{ "padding": "1.2rem" }}>
+                  <h3 style={{ "font-size": "1rem" }}>CLEC Training Events</h3>
+                  <div class="value" style={{ "font-size": "1.5rem" }}>{getStats().trainingEvents}</div>
+                  <div style={{ "font-size": "0.85rem", "color": "var(--text-muted)", "margin-top": "0.2rem" }}>Participants: {getStats().totalParticipants}</div>
                 </div>
               </div>
             </div>
@@ -564,7 +564,7 @@ function App() {
       {/* Modal for Adding/Editing Records */}
       <Show when={showModal()}>
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', 
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
           background: 'rgba(0,0,0,0.6)', "backdrop-filter": 'blur(5px)',
           display: 'flex', "justify-content": 'center', "align-items": 'center',
           "z-index": 1000
@@ -572,7 +572,7 @@ function App() {
           <div class="glass-card" style={{ width: '500px', padding: '2rem', "max-height": "90vh", "overflow-y": "auto" }}>
             <h2 style={{ "margin-top": 0 }}>{modalMode() === 'add' ? 'Add New' : 'Edit'} {modalType().charAt(0).toUpperCase() + modalType().slice(1)}</h2>
             <form onSubmit={submitRecord}>
-              
+
               {modalType() === 'school' && (
                 <>
                   <div class="form-group"><label>School Name</label><input required type="text" class="form-control" value={formData().school_name || ''} onInput={(e) => updateForm('school_name', (e.target as HTMLInputElement).value)} /></div>
@@ -715,7 +715,7 @@ function App() {
 
       <Show when={showInfo()}>
         <div class="modal-overlay" onClick={() => setShowInfo(false)}>
-          <div class="modal-content animate-fade-in" style={{"max-width": "400px", "text-align": "center"}} onClick={e => e.stopPropagation()}>
+          <div class="modal-content animate-fade-in" style={{ "max-width": "400px", "text-align": "center" }} onClick={e => e.stopPropagation()}>
             <h2>App Info</h2>
             <img src={logoUrl} alt="Logo" style={{ width: "60px", margin: "1rem 0" }} />
             <p style={{ "margin-bottom": "1rem", "line-height": "1.5" }}>
