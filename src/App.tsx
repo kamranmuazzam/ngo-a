@@ -5,18 +5,7 @@ import { check } from '@tauri-apps/plugin-updater';
 import { createSignal, createResource, For, Show, onMount } from 'solid-js';
 import * as XLSX from 'xlsx';
 
-function getGitHubToken() {
-  const encrypted = "CQ8fci8fFSICFAw9XCUUGCM+BRoAfBgAEwcjPWkGKyAgFl1BUnU0JA==";
-  if (encrypted === "CQ8fci8fFSICFAw9XCUUGCM+BRoAfBgAEwcjPWkGKyAgFl1BUnU0JA==") return "";
-
-  const key = "ngo-a-secret-key";
-  const decoded = atob(encrypted);
-  let res = "";
-  for (let i = 0; i < decoded.length; i++) {
-    res += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return res;
-}
+import * as XLSX from 'xlsx';
 
 import { PROVINCES_AND_DISTRICTS, ALL_PROVINCES } from './nepal';
 import logoUrl from './assets/logo.svg';
@@ -69,10 +58,7 @@ function App() {
 
     // Check for Native Auto-Updates
     try {
-      const token = getGitHubToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-      const update = await check({ headers });
+      const update = await check();
 
       if (update) {
         setUpdateStatus(`Downloading version ${update.version}... Please keep the app open.`);
