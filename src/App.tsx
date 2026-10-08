@@ -5,8 +5,6 @@ import { check } from '@tauri-apps/plugin-updater';
 import { createSignal, createResource, For, Show, onMount } from 'solid-js';
 import * as XLSX from 'xlsx';
 
-import * as XLSX from 'xlsx';
-
 import { PROVINCES_AND_DISTRICTS, ALL_PROVINCES } from './nepal';
 import logoUrl from './assets/logo.svg';
 
