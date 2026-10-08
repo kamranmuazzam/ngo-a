@@ -351,9 +351,8 @@ function App() {
                     {`
                       .svg-map-wrapper svg { width: 100%; height: 100%; max-height: 400px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
                       .svg-map-wrapper svg path {
-                        stroke: #64748b !important;
-                        stroke-width: 0.6px !important;
-                        fill: #e2e8f0;
+                        stroke: transparent !important;
+                        fill: transparent;
                       }
                       /* Highlight the covered districts */
                       ${getStats().districtsArray.map((d:string) => `.svg-map-wrapper svg path[id="${d}"]`).join(', ')} {
