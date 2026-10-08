@@ -1,4 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
+import { open } from '@tauri-apps/plugin-opener';
 import { createSignal, createResource, For, Show, onMount } from 'solid-js';
 import * as XLSX from 'xlsx';
 import { PROVINCES_AND_DISTRICTS, ALL_PROVINCES } from './nepal';
@@ -37,11 +39,26 @@ function App() {
   const [editingId, setEditingId] = createSignal<string>('');
   
   const [mapSvgData, setMapSvgData] = createSignal('');
+  
+  // Updater State
+  const [updateAvailable, setUpdateAvailable] = createSignal<any>(null);
 
-  onMount(() => {
-    
+  onMount(async () => {
     fetch('/nepal.svg').then(r => r.text()).then(t => setMapSvgData(t));
-
+    
+    // Check for Updates
+    try {
+      const currentVersion = await getVersion();
+      const response = await fetch('https://gist.githubusercontent.com/kamranmuazzam/a9c9aa1bbc1a9bf21179737a9f603d13/raw/update.json');
+      const data = await response.json();
+      
+      // Basic check: if the remote version is different from the current version
+      if (data.version && data.version !== currentVersion) {
+        setUpdateAvailable(data);
+      }
+    } catch (e) {
+      console.error("Failed to check for updates", e);
+    }
   });
   
   const [formData, setFormData] = createSignal<any>({});
@@ -233,6 +250,19 @@ function App() {
       </aside>
 
       <main class="main-content">
+        <Show when={updateAvailable()}>
+          <div style={{ background: '#3b82f6', color: 'white', padding: '0.8rem 1rem', "border-radius": '8px', "margin-bottom": '1rem', display: 'flex', "justify-content": 'space-between', "align-items": 'center' }}>
+            <div>
+              <strong>Update Available!</strong> Version {updateAvailable().version} is out.
+              <br/>
+              <span style={{ "font-size": "0.85rem", opacity: 0.9 }}>{updateAvailable().notes}</span>
+            </div>
+            <button class="btn" style={{ background: 'white', color: '#3b82f6' }} onClick={() => open(updateAvailable().url)}>
+              Download Update
+            </button>
+          </div>
+        </Show>
+
         <div class="header">
           <h1>
             {activeTab() === 'dashboard' && 'Overview Dashboard'}
