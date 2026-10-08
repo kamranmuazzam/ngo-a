@@ -48,6 +48,11 @@ function App() {
   
   // Modal State
   const [showModal, setShowModal] = createSignal(false);
+  const [showInfo, setShowInfo] = createSignal(false);
+  const [appVersion, setAppVersion] = createSignal('');
+  if (!localStorage.getItem('installDate')) {
+    localStorage.setItem('installDate', new Date().toLocaleDateString());
+  }
   const [modalMode, setModalMode] = createSignal<'add' | 'edit'>('add');
   const [modalType, setModalType] = createSignal<'school' | 'student' | 'teacher' | 'training'>('student');
   const [editingId, setEditingId] = createSignal<string>('');
@@ -60,6 +65,7 @@ function App() {
 
   onMount(async () => {
     fetch('/nepal.svg').then(r => r.text()).then(t => setMapSvgData(t));
+    getVersion().then(v => setAppVersion(v));
     
     // Check for Native Auto-Updates
     try {
@@ -274,6 +280,13 @@ function App() {
         <a href="#" class={`nav-link ${activeTab() === 'students' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('students'); }}>Students</a>
         <a href="#" class={`nav-link ${activeTab() === 'teachers' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('teachers'); }}>Teachers</a>
         <a href="#" class={`nav-link ${activeTab() === 'trainings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('trainings'); }}>Trainings</a>
+        <div style={{ "flex-grow": 1 }}></div>
+        <a href="#" class="nav-link" onClick={(e) => { e.preventDefault(); exportToExcel(); }}>
+          <span style={{"font-weight": "normal", "font-size": "0.9rem", "opacity": 0.8}}>Export All Data</span>
+        </a>
+        <div style={{ "text-align": "center", "opacity": 0.3, "cursor": "pointer", "margin-bottom": "1rem" }} onClick={() => setShowInfo(true)}>
+          <span style={{"font-family": "monospace", "border": "1px solid", "border-radius": "50%", "padding": "0 5px", "font-size": "12px"}}>i</span>
+        </div>
       </aside>
 
       <main class="main-content">
@@ -294,9 +307,6 @@ function App() {
             {activeTab() === 'trainings' && 'Training & Events'}
           </h1>
           <div style={{ display: 'flex', gap: '1rem', "align-items": "center" }}>
-            <button class="btn" style={{ "background": "transparent", "color": "var(--primary-color)", "border": "2px solid var(--primary-color)" }} onClick={exportToExcel}>
-              Export All Data (Excel)
-            </button>
             <Show when={['schools', 'students', 'teachers', 'trainings'].includes(activeTab())}>
               <button class="btn" onClick={() => openModal('add', activeTab().slice(0, -1) as any)}>
                 Add New Record
@@ -700,6 +710,23 @@ function App() {
                 <button type="button" class="btn" style={{ background: '#555', color: '#fff', border: 'none' }} onClick={() => setShowModal(false)}>Cancel</button>
               </div>
             </form>
+          </div>
+        </div>
+      </Show>
+
+      <Show when={showInfo()}>
+        <div class="modal-overlay" onClick={() => setShowInfo(false)}>
+          <div class="modal-content animate-fade-in" style={{"max-width": "400px", "text-align": "center"}} onClick={e => e.stopPropagation()}>
+            <h2>App Info</h2>
+            <img src={logoUrl} alt="Logo" style={{ width: "60px", margin: "1rem 0" }} />
+            <p style={{ "margin-bottom": "1rem", "line-height": "1.5" }}>
+              This app is developed by <strong>Nepal AI and Artificial Digital Solutions</strong>.
+            </p>
+            <div style={{ "background": "var(--bg-color)", "padding": "1rem", "border-radius": "8px", "margin-bottom": "1.5rem" }}>
+              <div style={{ "margin-bottom": "0.5rem" }}><strong>Version:</strong> {appVersion()}</div>
+              <div><strong>Installed On:</strong> {localStorage.getItem('installDate')}</div>
+            </div>
+            <button class="btn" onClick={() => setShowInfo(false)}>Close</button>
           </div>
         </div>
       </Show>
