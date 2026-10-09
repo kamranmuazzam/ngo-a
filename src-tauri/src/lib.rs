@@ -75,6 +75,20 @@ fn verify_password(hash: &str, password: &str) -> bool {
     Argon2::default().verify_password(password.as_bytes(), &parsed_hash).is_ok()
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_password() {
+        let h = hash_password("turing");
+        assert!(verify_password(&h, "turing"));
+        let h2 = hash_password("new_password");
+        assert!(verify_password(&h2, "new_password"));
+    }
+}
+
+
 fn init_db<P: AsRef<std::path::Path>>(db_path: P) -> Result<Connection> {
     let conn = Connection::open(db_path)?;
 

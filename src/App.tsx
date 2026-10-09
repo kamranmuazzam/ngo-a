@@ -40,6 +40,7 @@ function App() {
 
   // Network State
   const [networkInfo, setNetworkInfo] = createSignal<any>(null);
+  const [hasNetwork, setHasNetwork] = createSignal<boolean | null>(null);
   const [joinKey, setJoinKey] = createSignal('');
   const [pairingQrUrl, setPairingQrUrl] = createSignal('');
 
@@ -69,6 +70,19 @@ function App() {
   onMount(async () => {
     fetch('/nepal.svg').then(r => r.text()).then(t => setMapSvgData(t));
     getVersion().then(v => setAppVersion(v));
+
+    try {
+      const info = await invoke('get_network_info');
+      setNetworkInfo(info);
+      if (info && (info as any).network_key) {
+        setHasNetwork(true);
+        await invoke('start_sync_engine');
+      } else {
+        setHasNetwork(false);
+      }
+    } catch (e) {
+      setHasNetwork(false);
+    }
 
     // Check for Native Auto-Updates
     try {
@@ -294,6 +308,7 @@ function App() {
       const info = await invoke('get_network_info');
       setNetworkInfo(info);
       if (info && (info as any).network_key) {
+        setHasNetwork(true);
         await invoke('start_sync_engine');
       }
     } catch (e) {
@@ -319,6 +334,7 @@ function App() {
     try {
       const info = await invoke('create_network');
       setNetworkInfo(info);
+      setHasNetwork(true);
       alert('Network created successfully!');
     } catch (e) {
       alert('Error creating network: ' + e);
@@ -330,6 +346,7 @@ function App() {
     try {
       const info = await invoke('join_network', { networkKey: joinKey() });
       setNetworkInfo(info);
+      setHasNetwork(true);
       alert('Successfully joined network. Pending authorization.');
     } catch (e) {
       alert('Error joining network: ' + e);
@@ -342,20 +359,48 @@ function App() {
     try {
       await invoke('change_password', { 
         username: loginUsername(), 
-        oldPassword: loginPassword(), 
-        newPassword: newPassword() 
+        old_password: loginPassword(), 
+        new_password: newPassword() 
       });
       setIsAuthenticated(true);
       setRequirePasswordChange(false);
-      // Fetch role again if needed, or assume it's set during login attempt
+      setCurrentUserRole('administrator');
     } catch (e: any) {
       setLoginError(e.toString());
     }
   };
 
+  if (hasNetwork() === false) {
+    return (
+      <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', width: '100%', background: 'var(--bg-color)' }}>
+        <div class="glass-card animate-fade-in" style={{ width: '800px', padding: '3rem' }}>
+          <div style={{ "text-align": 'center', "margin-bottom": '2rem' }}>
+            <img src={logoUrl} alt="Logo" style={{ width: '100px', "margin-bottom": '1.5rem' }} />
+            <h1 style={{ color: 'var(--primary-color)' }}>Welcome to Digital Bridges</h1>
+            <p style={{ color: 'var(--text-muted)', "font-size": '1.1rem' }}>Let's connect your device to the decentralized network.</p>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '2rem' }}>
+            <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
+              <h3>Join Existing Network</h3>
+              <p style={{ color: 'var(--text-muted)', "margin-bottom": '1rem' }}>Enter a 10-character code provided by an administrator.</p>
+              <input type="text" class="form-control" placeholder="e.g. X4J9-K2L8-Q1" value={joinKey()} onInput={e => setJoinKey(e.currentTarget.value)} style={{ "margin-bottom": '1rem' }} />
+              <button class="btn" onClick={handleJoinNetwork} disabled={!joinKey()} style={{ width: '100%' }}>Join Network</button>
+            </div>
+            <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
+              <h3>Create New Network</h3>
+              <p style={{ color: 'var(--text-muted)', "margin-bottom": '1rem' }}>Start a brand new cluster if this is the first device.</p>
+              <button class="btn" onClick={handleCreateNetwork} style={{ background: '#10b981', width: '100%' }}>Create Network</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated()) {
     return (
-      <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', background: 'var(--bg-color)' }}>
+      <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', width: '100%', background: 'var(--bg-color)' }}>
         <div class="glass-card animate-fade-in" style={{ width: '400px', padding: '2.5rem', "text-align": 'center' }}>
           <img src={logoUrl} alt="Logo" style={{ width: '80px', "margin-bottom": '1.5rem' }} />
           <h2 style={{ "margin-bottom": '1.5rem', color: 'var(--text-color)' }}>
