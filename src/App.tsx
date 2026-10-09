@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { check } from '@tauri-apps/plugin-updater';
-import { createSignal, createResource, For, Show, onMount, createEffect } from 'solid-js';
+import { createSignal, createResource, For, Show, onMount, createEffect, ErrorBoundary } from 'solid-js';
 import * as XLSX from 'xlsx';
 import QRCode from 'qrcode';
 
@@ -310,9 +310,12 @@ function App() {
       if (info && (info as any).network_key) {
         setHasNetwork(true);
         await invoke('start_sync_engine');
+      } else {
+        setHasNetwork(false);
       }
     } catch (e) {
       console.error('Failed to get network info', e);
+      setHasNetwork(false);
     }
   };
 
@@ -359,8 +362,8 @@ function App() {
     try {
       await invoke('change_password', { 
         username: loginUsername(), 
-        old_password: loginPassword(), 
-        new_password: newPassword() 
+        oldPassword: loginPassword(), 
+        newPassword: newPassword() 
       });
       setIsAuthenticated(true);
       setRequirePasswordChange(false);
@@ -370,92 +373,90 @@ function App() {
     }
   };
 
-  if (hasNetwork() === false) {
-    return (
-      <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', width: '100%', background: 'var(--bg-color)' }}>
-        <div class="glass-card animate-fade-in" style={{ width: '800px', padding: '3rem' }}>
-          <div style={{ "text-align": 'center', "margin-bottom": '2rem' }}>
-            <img src={logoUrl} alt="Logo" style={{ width: '100px', "margin-bottom": '1.5rem' }} />
-            <h1 style={{ color: 'var(--primary-color)' }}>Welcome to Digital Bridges</h1>
-            <p style={{ color: 'var(--text-muted)', "font-size": '1.1rem' }}>Let's connect your device to the decentralized network.</p>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '2rem' }}>
-            <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
-              <h3>Join Existing Network</h3>
-              <p style={{ color: 'var(--text-muted)', "margin-bottom": '1rem' }}>Enter a 10-character code provided by an administrator.</p>
-              <input type="text" class="form-control" placeholder="e.g. X4J9-K2L8-Q1" value={joinKey()} onInput={e => setJoinKey(e.currentTarget.value)} style={{ "margin-bottom": '1rem' }} />
-              <button class="btn" onClick={handleJoinNetwork} disabled={!joinKey()} style={{ width: '100%' }}>Join Network</button>
-            </div>
-            <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
-              <h3>Create New Network</h3>
-              <p style={{ color: 'var(--text-muted)', "margin-bottom": '1rem' }}>Start a brand new cluster if this is the first device.</p>
-              <button class="btn" onClick={handleCreateNetwork} style={{ background: '#10b981', width: '100%' }}>Create Network</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated()) {
-    return (
-      <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', width: '100%', background: 'var(--bg-color)' }}>
-        <div class="glass-card animate-fade-in" style={{ width: '400px', padding: '2.5rem', "text-align": 'center' }}>
-          <img src={logoUrl} alt="Logo" style={{ width: '80px', "margin-bottom": '1.5rem' }} />
-          <h2 style={{ "margin-bottom": '1.5rem', color: 'var(--text-color)' }}>
-            {requirePasswordChange() ? 'Change Default Password' : 'Login'}
-          </h2>
-          
-          <Show when={loginError()}>
-            <div style={{ color: '#ef4444', "margin-bottom": '1rem', padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', "border-radius": '6px' }}>
-              {loginError()}
-            </div>
-          </Show>
-
-          <form onSubmit={(e) => requirePasswordChange() ? handleChangePassword(e) : handleLogin(e)} style={{ display: 'flex', "flex-direction": 'column', gap: '1rem' }}>
-            <Show when={!requirePasswordChange()}>
-              <input 
-                type="text" 
-                class="form-control" 
-                placeholder="Username" 
-                value={loginUsername()} 
-                onInput={(e) => setLoginUsername(e.currentTarget.value)}
-                required
-              />
-            </Show>
-            
-            <input 
-              type="password" 
-              class="form-control" 
-              placeholder={requirePasswordChange() ? "Current Password" : "Password"} 
-              value={loginPassword()} 
-              onInput={(e) => setLoginPassword(e.currentTarget.value)}
-              required
-            />
-
-            <Show when={requirePasswordChange()}>
-               <input 
-                type="password" 
-                class="form-control" 
-                placeholder="New Password" 
-                value={newPassword()} 
-                onInput={(e) => setNewPassword(e.currentTarget.value)}
-                required
-              />
-            </Show>
-
-            <button type="submit" class="btn" style={{ "margin-top": '1rem' }}>
-              {requirePasswordChange() ? 'Update Password' : 'Sign In'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
+      <Show when={hasNetwork() === false}>
+        <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', width: '100%', background: 'var(--bg-color)' }}>
+          <div class="glass-card animate-fade-in" style={{ width: '800px', padding: '3rem' }}>
+            <div style={{ "text-align": 'center', "margin-bottom": '2rem' }}>
+              <img src={logoUrl} alt="Logo" style={{ width: '100px', "margin-bottom": '1.5rem' }} />
+              <h1 style={{ color: 'var(--primary-color)' }}>Welcome to Digital Bridges</h1>
+              <p style={{ color: 'var(--text-muted)', "font-size": '1.1rem' }}>Let's connect your device to the decentralized network.</p>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '2rem' }}>
+              <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
+                <h3>Join Existing Network</h3>
+                <p style={{ color: 'var(--text-muted)', "margin-bottom": '1rem' }}>Enter a 10-character code provided by an administrator.</p>
+                <input type="text" class="form-control" placeholder="e.g. X4J9-K2L8-Q1" value={joinKey()} onInput={e => setJoinKey(e.currentTarget.value)} style={{ "margin-bottom": '1rem' }} />
+                <button class="btn" onClick={handleJoinNetwork} disabled={!joinKey()} style={{ width: '100%' }}>Join Network</button>
+              </div>
+              <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
+                <h3>Create New Network</h3>
+                <p style={{ color: 'var(--text-muted)', "margin-bottom": '1rem' }}>Start a brand new cluster if this is the first device.</p>
+                <button class="btn" onClick={handleCreateNetwork} style={{ background: '#10b981', width: '100%' }}>Create Network</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      <Show when={hasNetwork() === true && !isAuthenticated()}>
+        <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', width: '100%', background: 'var(--bg-color)' }}>
+          <div class="glass-card animate-fade-in" style={{ width: '400px', padding: '2.5rem', "text-align": 'center' }}>
+            <img src={logoUrl} alt="Logo" style={{ width: '80px', "margin-bottom": '1.5rem' }} />
+            <h2 style={{ "margin-bottom": '1.5rem', color: 'var(--text-color)' }}>
+              {requirePasswordChange() ? 'Change Default Password' : 'Login'}
+            </h2>
+            
+            <Show when={loginError()}>
+              <div style={{ color: '#ef4444', "margin-bottom": '1rem', padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', "border-radius": '6px' }}>
+                {loginError()}
+              </div>
+            </Show>
+
+            <form onSubmit={(e) => requirePasswordChange() ? handleChangePassword(e) : handleLogin(e)} style={{ display: 'flex', "flex-direction": 'column', gap: '1rem' }}>
+              <Show when={!requirePasswordChange()}>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  placeholder="Username" 
+                  value={loginUsername()} 
+                  onInput={(e) => setLoginUsername(e.currentTarget.value)}
+                  required
+                />
+              </Show>
+              
+              <input 
+                type="password" 
+                class="form-control" 
+                placeholder={requirePasswordChange() ? "Current Password" : "Password"} 
+                value={loginPassword()} 
+                onInput={(e) => setLoginPassword(e.currentTarget.value)}
+                required
+              />
+
+              <Show when={requirePasswordChange()}>
+                 <input 
+                  type="password" 
+                  class="form-control" 
+                  placeholder="New Password" 
+                  value={newPassword()} 
+                  onInput={(e) => setNewPassword(e.currentTarget.value)}
+                  required
+                />
+              </Show>
+
+              <button type="submit" class="btn" style={{ "margin-top": '1rem' }}>
+                {requirePasswordChange() ? 'Update Password' : 'Sign In'}
+              </button>
+            </form>
+          </div>
+        </div>
+      </Show>
+
+      <Show when={hasNetwork() === true && isAuthenticated()}>
+        <ErrorBoundary fallback={(err, reset) => <div style={{padding: '2rem', color: 'red'}}><h1>CRITICAL RENDER ERROR</h1><pre>{err.toString()}</pre><button onClick={reset}>Retry</button></div>}>
       <aside class="sidebar">
         <div class="sidebar-title" style={{ "text-align": "center", "padding-bottom": "1rem" }}>
           <img src={logoUrl} alt="Digital Bridges Logo" style={{ width: "80px", "margin-bottom": "0.5rem" }} />
@@ -1010,7 +1011,7 @@ function App() {
           </div>
         </div>
       </Show>
-    </>
+    </ErrorBoundary>
   );
 }
 

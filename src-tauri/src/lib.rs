@@ -71,7 +71,10 @@ fn hash_password(password: &str) -> String {
 
 
 fn verify_password(hash: &str, password: &str) -> bool {
-    let parsed_hash = PasswordHash::new(hash).unwrap();
+    let parsed_hash = match PasswordHash::new(hash) {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
     Argon2::default().verify_password(password.as_bytes(), &parsed_hash).is_ok()
 }
 
