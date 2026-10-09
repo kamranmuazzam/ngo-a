@@ -288,11 +288,11 @@ function App() {
     try {
       const res: any = await invoke('login', { username: loginUsername(), password: loginPassword() });
       if (res.success) {
+        setCurrentUserRole(res.role);
         if (res.require_password_change) {
           setRequirePasswordChange(true);
         } else {
           setIsAuthenticated(true);
-          setCurrentUserRole(res.role);
           fetchNetworkInfo();
         }
       } else {
@@ -364,7 +364,7 @@ function App() {
       });
       setIsAuthenticated(true);
       setRequirePasswordChange(false);
-      setCurrentUserRole('administrator');
+      fetchNetworkInfo();
     } catch (e: any) {
       setLoginError(e.toString());
     }
@@ -413,7 +413,7 @@ function App() {
             </div>
           </Show>
 
-          <form onSubmit={requirePasswordChange() ? handleChangePassword : handleLogin} style={{ display: 'flex', "flex-direction": 'column', gap: '1rem' }}>
+          <form onSubmit={(e) => requirePasswordChange() ? handleChangePassword(e) : handleLogin(e)} style={{ display: 'flex', "flex-direction": 'column', gap: '1rem' }}>
             <Show when={!requirePasswordChange()}>
               <input 
                 type="text" 
