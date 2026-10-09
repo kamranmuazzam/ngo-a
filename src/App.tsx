@@ -1011,7 +1011,7 @@ function App() {
           </div>
         </div>
       </Show>
-    </ErrorBoundary>
+    </>
   );
 }
 
