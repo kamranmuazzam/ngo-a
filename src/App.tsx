@@ -2,8 +2,10 @@ import { invoke } from '@tauri-apps/api/core';
 import { getVersion } from '@tauri-apps/api/app';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { check } from '@tauri-apps/plugin-updater';
-import { createSignal, createResource, For, Show, onMount } from 'solid-js';
+import { createSignal, createResource, For, Show, onMount, createEffect } from 'solid-js';
 import * as XLSX from 'xlsx';
+import QRCode from 'qrcode';
+
 
 import { PROVINCES_AND_DISTRICTS, ALL_PROVINCES } from './nepal';
 import logoUrl from './assets/logo.svg';
@@ -26,6 +28,20 @@ const extractId = (thing: any) => {
 
 function App() {
   const [activeTab, setActiveTab] = createSignal('dashboard');
+
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = createSignal(false);
+  const [currentUserRole, setCurrentUserRole] = createSignal<string>('');
+  const [requirePasswordChange, setRequirePasswordChange] = createSignal(false);
+  const [loginUsername, setLoginUsername] = createSignal('');
+  const [loginPassword, setLoginPassword] = createSignal('');
+  const [newPassword, setNewPassword] = createSignal('');
+  const [loginError, setLoginError] = createSignal('');
+
+  // Network State
+  const [networkInfo, setNetworkInfo] = createSignal<any>(null);
+  const [joinKey, setJoinKey] = createSignal('');
+  const [pairingQrUrl, setPairingQrUrl] = createSignal('');
 
   // DB Data State
   const [schools, { refetch: refetchSchools }] = createResource(fetchData('schools'));
@@ -252,6 +268,147 @@ function App() {
     return Array.from(grouped.values());
   };
 
+  const handleLogin = async (e: Event) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      const res: any = await invoke('login', { username: loginUsername(), password: loginPassword() });
+      if (res.success) {
+        if (res.require_password_change) {
+          setRequirePasswordChange(true);
+        } else {
+          setIsAuthenticated(true);
+          setCurrentUserRole(res.role);
+          fetchNetworkInfo();
+        }
+      } else {
+        setLoginError(res.error || 'Invalid credentials');
+      }
+    } catch (e: any) {
+      setLoginError(e.toString());
+    }
+  };
+
+  const fetchNetworkInfo = async () => {
+    try {
+      const info = await invoke('get_network_info');
+      setNetworkInfo(info);
+      if (info && (info as any).network_key) {
+        await invoke('start_sync_engine');
+      }
+    } catch (e) {
+      console.error('Failed to get network info', e);
+    }
+  };
+
+  createEffect(async () => {
+    const net = networkInfo();
+    if (net && net.network_key && net.node_id) {
+      const myDevice = net.devices.find((d: any) => d.id === net.node_id);
+      if (myDevice && myDevice.status === 'pending_authorization') {
+        const payload = JSON.stringify({ key: net.network_key, id: net.node_id });
+        const url = await QRCode.toDataURL(payload, { width: 256, margin: 2, color: { dark: '#111', light: '#fff' } });
+        setPairingQrUrl(url);
+      } else {
+        setPairingQrUrl('');
+      }
+    }
+  });
+
+  const handleCreateNetwork = async () => {
+    try {
+      const info = await invoke('create_network');
+      setNetworkInfo(info);
+      alert('Network created successfully!');
+    } catch (e) {
+      alert('Error creating network: ' + e);
+    }
+  };
+
+  const handleJoinNetwork = async () => {
+    if (!joinKey()) return;
+    try {
+      const info = await invoke('join_network', { networkKey: joinKey() });
+      setNetworkInfo(info);
+      alert('Successfully joined network. Pending authorization.');
+    } catch (e) {
+      alert('Error joining network: ' + e);
+    }
+  };
+
+  const handleChangePassword = async (e: Event) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      await invoke('change_password', { 
+        username: loginUsername(), 
+        oldPassword: loginPassword(), 
+        newPassword: newPassword() 
+      });
+      setIsAuthenticated(true);
+      setRequirePasswordChange(false);
+      // Fetch role again if needed, or assume it's set during login attempt
+    } catch (e: any) {
+      setLoginError(e.toString());
+    }
+  };
+
+  if (!isAuthenticated()) {
+    return (
+      <div style={{ display: 'flex', "justify-content": 'center', "align-items": 'center', height: '100vh', background: 'var(--bg-color)' }}>
+        <div class="glass-card animate-fade-in" style={{ width: '400px', padding: '2.5rem', "text-align": 'center' }}>
+          <img src={logoUrl} alt="Logo" style={{ width: '80px', "margin-bottom": '1.5rem' }} />
+          <h2 style={{ "margin-bottom": '1.5rem', color: 'var(--text-color)' }}>
+            {requirePasswordChange() ? 'Change Default Password' : 'Login'}
+          </h2>
+          
+          <Show when={loginError()}>
+            <div style={{ color: '#ef4444', "margin-bottom": '1rem', padding: '0.5rem', background: 'rgba(239, 68, 68, 0.1)', "border-radius": '6px' }}>
+              {loginError()}
+            </div>
+          </Show>
+
+          <form onSubmit={requirePasswordChange() ? handleChangePassword : handleLogin} style={{ display: 'flex', "flex-direction": 'column', gap: '1rem' }}>
+            <Show when={!requirePasswordChange()}>
+              <input 
+                type="text" 
+                class="form-control" 
+                placeholder="Username" 
+                value={loginUsername()} 
+                onInput={(e) => setLoginUsername(e.currentTarget.value)}
+                required
+              />
+            </Show>
+            
+            <input 
+              type="password" 
+              class="form-control" 
+              placeholder={requirePasswordChange() ? "Current Password" : "Password"} 
+              value={loginPassword()} 
+              onInput={(e) => setLoginPassword(e.currentTarget.value)}
+              required
+            />
+
+            <Show when={requirePasswordChange()}>
+               <input 
+                type="password" 
+                class="form-control" 
+                placeholder="New Password" 
+                value={newPassword()} 
+                onInput={(e) => setNewPassword(e.currentTarget.value)}
+                required
+              />
+            </Show>
+
+            <button type="submit" class="btn" style={{ "margin-top": '1rem' }}>
+              {requirePasswordChange() ? 'Update Password' : 'Sign In'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <aside class="sidebar">
@@ -264,9 +421,13 @@ function App() {
         <a href="#" class={`nav-link ${activeTab() === 'students' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('students'); }}>Students</a>
         <a href="#" class={`nav-link ${activeTab() === 'teachers' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('teachers'); }}>Teachers</a>
         <a href="#" class={`nav-link ${activeTab() === 'trainings' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('trainings'); }}>Trainings</a>
+        <a href="#" class={`nav-link ${activeTab() === 'network' ? 'active' : ''}`} onClick={(e) => { e.preventDefault(); setActiveTab('network'); }}>Network</a>
         <div style={{ "flex-grow": 1 }}></div>
         <a href="#" class="nav-link" onClick={(e) => { e.preventDefault(); exportToExcel(); }}>
           <span style={{ "font-weight": "normal", "font-size": "0.9rem", "opacity": 0.8 }}>Export All Data</span>
+        </a>
+        <a href="#" class="nav-link" onClick={(e) => { e.preventDefault(); setIsAuthenticated(false); }}>
+          <span style={{ "font-weight": "normal", "font-size": "0.9rem", "opacity": 0.8 }}>Logout</span>
         </a>
         <div style={{ "text-align": "center", "opacity": 0.3, "cursor": "pointer", "margin-bottom": "1rem" }} onClick={() => setShowInfo(true)}>
           <span style={{ "font-family": "monospace", "border": "1px solid", "border-radius": "50%", "padding": "0 5px", "font-size": "12px" }}>i</span>
@@ -289,6 +450,7 @@ function App() {
             {activeTab() === 'students' && 'Student Beneficiaries'}
             {activeTab() === 'teachers' && 'Teacher Roster'}
             {activeTab() === 'trainings' && 'Training & Events'}
+            {activeTab() === 'network' && 'Decentralized Sync & Network'}
           </h1>
           <div style={{ display: 'flex', gap: '1rem', "align-items": "center" }}>
             <Show when={['schools', 'students', 'teachers', 'trainings'].includes(activeTab())}>
@@ -539,6 +701,95 @@ function App() {
                   )}</For>
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {activeTab() === 'network' && (
+            <div style={{ padding: '1rem' }}>
+              <div class="glass-card" style={{ padding: '2rem', "margin-bottom": '2rem' }}>
+                <Show when={!networkInfo()?.network_key}>
+                  <h2>Not Connected to any Network</h2>
+                  <p style={{ color: 'var(--text-muted)', "margin-bottom": '1.5rem' }}>Create a new network or join an existing one using a 10-character code.</p>
+                  <div style={{ display: 'flex', gap: '2rem' }}>
+                    <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
+                      <h3>Join Network</h3>
+                      <input type="text" class="form-control" placeholder="e.g. X4J9-K2L8-Q1" value={joinKey()} onInput={e => setJoinKey(e.currentTarget.value)} style={{ "margin-bottom": '1rem' }} />
+                      <button class="btn" onClick={handleJoinNetwork} disabled={!joinKey()}>Join Network</button>
+                    </div>
+                    <div style={{ flex: 1, padding: '1.5rem', background: 'rgba(0,0,0,0.03)', "border-radius": '8px' }}>
+                      <h3>Create New Network</h3>
+                      <p style={{ color: 'var(--text-muted)' }}>Start a new peer-to-peer network cluster.</p>
+                      <button class="btn" onClick={handleCreateNetwork} style={{ background: '#10b981' }}>Create Network</button>
+                    </div>
+                  </div>
+                </Show>
+
+                <Show when={networkInfo()?.network_key}>
+                  <h2>Network Status: <span style={{ color: '#10b981' }}>Connected</span></h2>
+                  <div style={{ display: 'flex', gap: '2rem', "margin-top": '1.5rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <h3>Network Key</h3>
+                      <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.05)', "border-radius": '8px', "font-family": 'monospace', "font-size": '1.5rem', "letter-spacing": '2px', "text-align": 'center' }}>
+                        {networkInfo().network_key}
+                      </div>
+                      <p style={{ "font-size": '0.85rem', color: 'var(--text-muted)', "text-align": 'center', "margin-top": '0.5rem' }}>Share this code with other devices to join.</p>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h3>This Device</h3>
+                      <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.05)', "border-radius": '8px' }}>
+                        <div style={{ "margin-bottom": '0.5rem' }}><strong>Node ID:</strong> <span style={{ "font-family": 'monospace', "font-size": '0.85rem' }}>{networkInfo().node_id.substring(0, 8)}...</span></div>
+                        <div><strong>Role:</strong> {currentUserRole()}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Show when={pairingQrUrl()}>
+                    <div style={{ "margin-top": '2rem', padding: '1.5rem', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid #eab308', "border-radius": '8px', "text-align": 'center' }}>
+                      <h3 style={{ color: '#854d0e', "margin-bottom": '1rem' }}>Device Pending Authorization</h3>
+                      <p style={{ color: '#713f12', "margin-bottom": '1.5rem', "max-width": "500px", margin: "0 auto 1.5rem" }}>
+                        Ask an administrator to scan this QR code or manually approve your Node ID on their device.
+                      </p>
+                      <div style={{ background: '#fff', display: 'inline-block', padding: '1rem', "border-radius": '12px', "box-shadow": "0 4px 6px rgba(0,0,0,0.1)" }}>
+                        <img src={pairingQrUrl()} alt="Pairing QR Code" style={{ width: '200px', height: '200px' }} />
+                      </div>
+                    </div>
+                  </Show>
+                </Show>
+              </div>
+
+              <Show when={networkInfo()?.network_key}>
+                <div class="glass-card" style={{ padding: '2rem' }}>
+                  <h2>Connected Peers</h2>
+                  <table style={{ width: '100%', "border-collapse": 'collapse', "text-align": 'left', "margin-top": '1rem' }}>
+                    <thead>
+                      <tr style={{ "border-bottom": '1px solid var(--border-color)' }}>
+                        <th style={{ padding: '0.5rem' }}>Name</th>
+                        <th style={{ padding: '0.5rem' }}>Role</th>
+                        <th style={{ padding: '0.5rem' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <For each={networkInfo()?.devices || []}>{(device: any) => (
+                        <tr style={{ "border-bottom": '1px solid var(--border-color)' }}>
+                          <td style={{ padding: '0.5rem' }}>{device.name} {device.id === networkInfo().node_id ? '(You)' : ''}</td>
+                          <td style={{ padding: '0.5rem' }}>{device.role}</td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <span style={{ 
+                              padding: '0.25rem 0.5rem', 
+                              "border-radius": '4px', 
+                              "font-size": '0.85rem',
+                              background: device.status === 'online' ? '#d1fae5' : device.status === 'pending_authorization' ? '#fef08a' : '#f3f4f6',
+                              color: device.status === 'online' ? '#065f46' : device.status === 'pending_authorization' ? '#854d0e' : '#374151'
+                            }}>
+                              {device.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                        </tr>
+                      )}</For>
+                    </tbody>
+                  </table>
+                </div>
+              </Show>
             </div>
           )}
 

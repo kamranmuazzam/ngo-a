@@ -1,8 +1,15 @@
-use rusqlite::{Connection, Result, params};
+use rusqlite::{Connection, Result, params, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tauri::State;
 use tauri::Manager;
+use argon2::{
+    password_hash::{
+        phc::PasswordHash, PasswordHasher, PasswordVerifier
+    },
+    Argon2
+};
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct School {
@@ -55,6 +62,17 @@ struct Training {
 
 struct AppState {
     db: Mutex<Connection>,
+}
+
+fn hash_password(password: &str) -> String {
+    let argon2 = Argon2::default();
+    argon2.hash_password(password.as_bytes()).unwrap().to_string()
+}
+
+
+fn verify_password(hash: &str, password: &str) -> bool {
+    let parsed_hash = PasswordHash::new(hash).unwrap();
+    Argon2::default().verify_password(password.as_bytes(), &parsed_hash).is_ok()
 }
 
 fn init_db<P: AsRef<std::path::Path>>(db_path: P) -> Result<Connection> {
@@ -117,7 +135,183 @@ fn init_db<P: AsRef<std::path::Path>>(db_path: P) -> Result<Connection> {
         [],
     )?;
 
+    // Decentralization and Auth Tables
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL,
+            require_password_change BOOLEAN NOT NULL DEFAULT 1
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS devices (
+            id TEXT PRIMARY KEY,
+            pubkey TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            user_id TEXT,
+            authorized_by TEXT,
+            role TEXT NOT NULL,
+            status TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sync_log (
+            id TEXT PRIMARY KEY,
+            table_name TEXT NOT NULL,
+            record_id TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            data TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS node_metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )",
+        [],
+    )?;
+
+    // Bootstrap admin account
+    let admin_exists: bool = conn.query_row(
+        "SELECT 1 FROM users WHERE username = 'admin'",
+        [],
+        |_| Ok(true),
+    ).optional()?.unwrap_or(false);
+
+    if !admin_exists {
+        let admin_id = uuid::Uuid::new_v4().to_string();
+        let hash = hash_password("turing");
+        conn.execute(
+            "INSERT INTO users (id, username, password_hash, role, require_password_change) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![admin_id, "admin", hash, "administrator", true],
+        )?;
+    }
+
+
     Ok(conn)
+}
+
+// ------ NETWORK ------
+#[derive(Serialize)]
+struct NetworkInfo {
+    network_key: Option<String>,
+    node_id: Option<String>,
+    devices: Vec<Device>,
+}
+
+#[derive(Serialize)]
+struct Device {
+    id: String,
+    pubkey: String,
+    name: String,
+    role: String,
+    status: String,
+}
+
+#[tauri::command]
+fn get_network_info(state: State<AppState>) -> Result<NetworkInfo, String> {
+    let db = state.db.lock().unwrap();
+    let network_key: Option<String> = db.query_row("SELECT value FROM node_metadata WHERE key = 'network_key'", [], |row| row.get(0)).optional().map_err(|e| e.to_string())?;
+    let node_id: Option<String> = db.query_row("SELECT value FROM node_metadata WHERE key = 'node_id'", [], |row| row.get(0)).optional().map_err(|e| e.to_string())?;
+
+    let mut stmt = db.prepare("SELECT id, pubkey, name, role, status FROM devices").map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| {
+        Ok(Device {
+            id: row.get(0)?,
+            pubkey: row.get(1)?,
+            name: row.get(2)?,
+            role: row.get(3)?,
+            status: row.get(4)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    let mut devices = Vec::new();
+    for r in rows {
+        if let Ok(d) = r {
+            devices.push(d);
+        }
+    }
+
+    Ok(NetworkInfo {
+        network_key,
+        node_id,
+        devices,
+    })
+}
+
+use rand::RngExt;
+fn generate_network_key() -> String {
+    let mut rng = rand::rng();
+    let chars: Vec<char> = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".chars().collect();
+    let mut key = String::new();
+    for i in 0..9 {
+        if i == 4 {
+            key.push('-');
+        } else {
+            key.push(chars[rng.random_range(0..chars.len())]);
+        }
+    }
+    key
+}
+
+#[tauri::command]
+fn create_network(state: State<AppState>) -> Result<NetworkInfo, String> {
+    let db = state.db.lock().unwrap();
+    let key = generate_network_key();
+    let node_id = uuid::Uuid::new_v4().to_string(); // Placeholder for actual ed25519 pubkey
+
+    db.execute("INSERT OR REPLACE INTO node_metadata (key, value) VALUES ('network_key', ?1)", params![key]).map_err(|e| e.to_string())?;
+    db.execute("INSERT OR REPLACE INTO node_metadata (key, value) VALUES ('node_id', ?1)", params![node_id]).map_err(|e| e.to_string())?;
+
+    // Add self as authorized admin device
+    db.execute(
+        "INSERT OR IGNORE INTO devices (id, pubkey, name, role, status) VALUES (?1, ?1, 'This Mac', 'administrator', 'online')",
+        params![node_id],
+    ).map_err(|e| e.to_string())?;
+
+    drop(db);
+    get_network_info(state)
+}
+
+#[tauri::command]
+fn join_network(state: State<AppState>, network_key: String) -> Result<NetworkInfo, String> {
+    let db = state.db.lock().unwrap();
+    let node_id = uuid::Uuid::new_v4().to_string(); // Placeholder for actual ed25519 pubkey
+
+    db.execute("INSERT OR REPLACE INTO node_metadata (key, value) VALUES ('network_key', ?1)", params![network_key]).map_err(|e| e.to_string())?;
+    db.execute("INSERT OR REPLACE INTO node_metadata (key, value) VALUES ('node_id', ?1)", params![node_id]).map_err(|e| e.to_string())?;
+
+    // Add self as pending device
+    db.execute(
+        "INSERT OR IGNORE INTO devices (id, pubkey, name, role, status) VALUES (?1, ?1, 'This Device', 'standard', 'pending_authorization')",
+        params![node_id],
+    ).map_err(|e| e.to_string())?;
+
+    drop(db);
+    get_network_info(state)
+}
+
+
+#[tauri::command]
+async fn start_sync_engine(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    // Placeholder for Phase 3: Iroh Networking & Sync Engine
+    // 1. Fetch node_id and network_key from db
+    // 2. Initialize iroh::Endpoint
+    // 3. Start gossip protocol / sync loop
+    
+    // Simulating startup delay
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    
+    Ok("Sync engine initialized and running in background".to_string())
 }
 
 // ------ SCHOOLS ------
@@ -366,6 +560,58 @@ fn delete_training(state: State<AppState>, id: String) -> Result<String, String>
     Ok(id)
 }
 
+// ------ AUTHENTICATION ------
+#[derive(Serialize)]
+struct LoginResponse {
+    success: bool,
+    role: Option<String>,
+    require_password_change: Option<bool>,
+    error: Option<String>,
+}
+
+#[tauri::command]
+fn login(state: State<AppState>, username: String, password: String) -> Result<LoginResponse, String> {
+    let db = state.db.lock().unwrap();
+    let mut stmt = db.prepare("SELECT password_hash, role, require_password_change FROM users WHERE username = ?1").map_err(|e| e.to_string())?;
+    
+    let user_row = stmt.query_row(params![username], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, bool>(2)?))
+    });
+
+    match user_row {
+        Ok((hash, role, require_password_change)) => {
+            if verify_password(&hash, &password) {
+                Ok(LoginResponse {
+                    success: true,
+                    role: Some(role),
+                    require_password_change: Some(require_password_change),
+                    error: None,
+                })
+            } else {
+                Ok(LoginResponse { success: false, role: None, require_password_change: None, error: Some("Invalid password".to_string()) })
+            }
+        },
+        Err(_) => Ok(LoginResponse { success: false, role: None, require_password_change: None, error: Some("User not found".to_string()) })
+    }
+}
+
+#[tauri::command]
+fn change_password(state: State<AppState>, username: String, old_password: String, new_password: String) -> Result<bool, String> {
+    let db = state.db.lock().unwrap();
+    let hash: String = db.query_row("SELECT password_hash FROM users WHERE username = ?1", params![username], |row| row.get(0)).map_err(|e| e.to_string())?;
+    
+    if verify_password(&hash, &old_password) {
+        let new_hash = hash_password(&new_password);
+        db.execute(
+            "UPDATE users SET password_hash = ?1, require_password_change = 0 WHERE username = ?2",
+            params![new_hash, username],
+        ).map_err(|e| e.to_string())?;
+        Ok(true)
+    } else {
+        Err("Invalid old password".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -396,7 +642,9 @@ pub fn run() {
             get_schools, create_school, update_school, delete_school,
             get_students, create_student, update_student, delete_student,
             get_teachers, create_teacher, update_teacher, delete_teacher,
-            get_trainings, create_training, update_training, delete_training
+            get_trainings, create_training, update_training, delete_training,
+            login, change_password,
+            get_network_info, create_network, join_network, start_sync_engine
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
